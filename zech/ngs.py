@@ -21,9 +21,12 @@ def form_sample_table(d,
         else:
             flag = select(f)
         if flag:
-            s_id = sid(f)
+            try:
+                s_id = sid(f)
+            except:
+                print(f)
             t = [i for i in patterns if re.search(patterns[i], f)]
-            assert len(t) == 1, "File %s matches multiple patterns."
+            assert len(t) == 1, "File %s matches none or multiple patterns." % f
             samples.loc[s_id, t[0]] = f
 
     return samples
