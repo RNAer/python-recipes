@@ -6,7 +6,7 @@ from numpy import concatenate, linspace
 import matplotlib
 
 
-def create_job_arrays(meta, sid_column, prefix, parent_dir, out,
+def create_job_arrays(meta, sid_column, raw_fp, prefix, parent_dir, out,
                       func, **resources):
     '''Create script for array jobs.
 
@@ -20,6 +20,8 @@ def create_job_arrays(meta, sid_column, prefix, parent_dir, out,
     sid_column : string or int or None
         Column name or index to obtain the sample ID. If it is None, sample
         IDs will be the row names.
+    raw_fp : string
+        The file path where input files are located.
     prefix : string
         The file name of the script for each sample.
     parent_dir : string
@@ -32,11 +34,13 @@ def create_job_arrays(meta, sid_column, prefix, parent_dir, out,
     Examples
     --------
     >>> from io import StringIO
+    >>> from os.path import join
     >>> meta = pd.DataFrame({'one': pd.Series(['a','b'], index=['s1', 's2']),
     ...                      'two': pd.Series([1, 2],  index=['s1', 's2'])})
-    >>> def create_script(sample, fh, **resources):
-    ...     fh.write('humann2 {r1} -t {ppn}\n'.format(
-    ...         r1=sample['one'], **resources))
+    >>> def create_script(raw_fp, out_fp, sample, fh, **resources):
+    ...     fh.write('humann2 {r1} -t {ppn}-o {out}\n'.format(
+    ...         r1=join(raw_fp, sample['one']),
+    ...         out=out_fp, **resources))
     >>> with open('/tmp/foo.pbs', 'w') as fh:
     ...     create_job_arrays(meta, None, 'foo_run',
     ...                       'project', fh, create_script)
@@ -90,7 +94,7 @@ echo ------------------------------------------------------
         if not exists(d):
             mkdir(d)
         with open(join(d, fn), 'w') as f:
-            func(row, f, **resources)
+            func(raw_fp, join(d, prefix), row, f, **resources)
         out.write('\n"{sid}"  #{i}'.format(sid=sid, i=i))
     out.write('\n)\n')
     out.write('bash %s\n' % join(
