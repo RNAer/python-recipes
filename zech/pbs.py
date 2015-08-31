@@ -145,11 +145,11 @@ class Kraken(JobArrays):
         self.kwargs['db'] = '~/softwares/kraken-0.10.5-beta/minikraken_20141208'
         self.kwargs['out'] = join(self.out_dir, sid)
         self.kwargs['out_dir'] = self.out_dir
-        cmd_lines = ['if ! {out_dir}/*.kraken &> /dev/null ; then']
+        cmd_lines = ['if ! {out_dir}/%s.kraken &> /dev/null ; then' % sid]
         if isinstance(input_columns, dict):
             cmd = ['kraken',
                    '--preload',
-                   '-db {db}'
+                   '-db {db}',
                    '--paired {R1} {R2}',
                    '--output {out}',
                    '--threads {ppn}',
@@ -158,7 +158,7 @@ class Kraken(JobArrays):
                 self.kwargs['R1'] = join(
                     self.raw_dir, metadata[input_columns['R1']])
             else:
-                self.kwargs['R1'] = 'R1.%s' % sid
+                self.kwargs['R1'] = join(self.out_dir, 'R1.%s' % sid)
                 cmd_lines.append(
                     '    zless %s >> {R1}' %
                     ' '.join(
@@ -167,7 +167,7 @@ class Kraken(JobArrays):
                 self.kwargs['R2'] = join(
                     self.raw_dir, metadata[input_columns['R2']])
             else:
-                self.kwargs['R2'] = 'R2.%s' % sid
+                self.kwargs['R2'] = join(self.out_dir, 'R2.%s' % sid)
                 cmd_lines.append(
                     '    zless %s >> {R2}' %
                     ' '.join(
