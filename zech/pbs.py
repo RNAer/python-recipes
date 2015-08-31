@@ -116,13 +116,13 @@ class Humann2(JobArrays):
         elif n == 1:
             self.kwargs['input'] = input_fps[0]
             template = (
-                'if ! {out_dir}/*.tsv &> /dev/null ; then\n'
+                'if ! ls {out_dir}/*.tsv &> /dev/null ; then\n'
                 '    humann2 --input {input} --output {out_dir} --threads {ppn}\n'
                 'fi\n')
         elif n > 1:
             self.kwargs['input'] = ' '.join(input_fps)
             template = (
-                'if ! {out_dir}/*.tsv &> /dev/null ; then\n'
+                'if ! ls {out_dir}/*.tsv &> /dev/null ; then\n'
                 '    zless {input} >> {tmp} && '
                 'humann2 --input {tmp} --output {out_dir} --threads {ppn} && rm -f {tmp}\n'
                 'fi\n')
@@ -145,7 +145,7 @@ class Kraken(JobArrays):
         self.kwargs['db'] = '~/softwares/kraken-0.10.5-beta/minikraken_20141208'
         self.kwargs['out'] = join(self.out_dir, sid)
         self.kwargs['out_dir'] = self.out_dir
-        cmd_lines = ['if ! {out_dir}/%s.kraken &> /dev/null ; then' % sid]
+        cmd_lines = ['if ! ls {out_dir}/%s.kraken &> /dev/null ; then' % sid]
         if isinstance(input_columns, dict):
             cmd = ['kraken',
                    '--preload',
