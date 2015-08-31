@@ -1,104 +1,10 @@
 from __future__ import print_function, unicode_literals
 
-from os import listdir, remove, rmdir, mkdir
-from os.path import isfile, isdir, join, exists
+from os import listdir, remove, rmdir, makedirs
+from os.path import isfile, isdir, join
 from numpy import concatenate, linspace
 import matplotlib
-
-
-def create_job_arrays(meta, sid_column, raw_fp, prefix, parent_dir, out,
-                      func, **resources):
-    '''Create script for array jobs.
-
-    It will create a sub directory in ``parent_dir`` directory for each
-    sample. In that sub dir, a script will be created with commands to
-    run. A master launcher is written to ``out``.
-
-    Parameters
-    ----------
-    meta : pandas DataFrame, metadata table
-    sid_column : string or int or None
-        Column name or index to obtain the sample ID. If it is None, sample
-        IDs will be the row names.
-    raw_fp : string
-        The file path where input files are located.
-    prefix : string
-        The file name of the script for each sample.
-    parent_dir : string
-        The directory where the newly created sub directories are located.
-    out : file handler
-        The master launch script output.
-    resources : dict
-        key-word parameter for PBS resource request.
-
-    Examples
-    --------
-    >>> from io import StringIO
-    >>> from os.path import join
-    >>> meta = pd.DataFrame({'one': pd.Series(['a','b'], index=['s1', 's2']),
-    ...                      'two': pd.Series([1, 2],  index=['s1', 's2'])})
-    >>> def create_script(raw_fp, out_fp, sample, fh, **resources):
-    ...     fh.write('humann2 {r1} -t {ppn}-o {out}\n'.format(
-    ...         r1=join(raw_fp, sample['one']),
-    ...         out=out_fp, **resources))
-    >>> with open('/tmp/foo.pbs', 'w') as fh:
-    ...     create_job_arrays(meta, None, 'foo_run',
-    ...                       'project', fh, create_script)
-    ...     print(fh.getvalue())
-    '''
-    if 'ppn' not in resources:
-        resources['ppn'] = 32
-    if 'mem' not in resources:
-        resources['mem'] = 32
-    if 'walltime' not in resources:
-        resources['walltime'] = 1000
-    header = '''#!/bin/bash
-
-#PBS -l nodes=1:ppn={ppn}
-#PBS -l mem={mem}gb
-#PBS -l walltime={walltime}:00:00
-#PBS -o log/{prefix}.o$PBS_JOBID
-#PBS -e log/{prefix}.e$PBS_JOBID
-#PBS -N {prefix}
-# keep output in real time
-#PBS -k oe
-
-cd $PBS_O_WORKDIR
-
-echo ------------------------------------------------------
-echo PBS: qsub is running on $PBS_O_HOST
-echo PBS: originating queue is $PBS_O_QUEUE
-echo PBS: executing queue is $PBS_QUEUE
-echo PBS: working directory is $PBS_O_WORKDIR
-echo PBS: execution mode is $PBS_ENVIRONMENT
-echo PBS: job identifier is $PBS_JOBID
-echo PBS: job name is $PBS_JOBNAME
-echo PBS: node file is $PBS_NODEFILE
-echo PBS: current home directory is $PBS_O_HOME
-echo PBS: PATH = $PBS_O_PATH
-echo ------------------------------------------------------
-
-'''.format(prefix=prefix, **resources)
-    array_var = 'samples'
-    fn = '%s.pbs' % prefix
-    out.write(header)
-    out.write('%s=(' % array_var)
-    if not exists(parent_dir):
-        mkdir(parent_dir)
-    for i, (rowname, row) in enumerate(meta.iterrows()):
-        if sid_column is None:
-            sid = rowname
-        else:
-            sid = row[sid_column]
-        d = join(parent_dir, sid)
-        if not exists(d):
-            mkdir(d)
-        with open(join(d, fn), 'w') as f:
-            func(raw_fp, join(d, prefix), row, f, **resources)
-        out.write('\n"{sid}"  #{i}'.format(sid=sid, i=i))
-    out.write('\n)\n')
-    out.write('bash %s\n' % join(
-        parent_dir, '${%s[${PBS_ARRAYID}]}' % array_var, fn))
+import errno
 
 
 def delete_dir(d):
@@ -113,6 +19,20 @@ def delete_dir(d):
             # It's a file - remove it...
             remove(fp)
     rmdir(d)
+
+
+def make_dir(path):
+    '''Create directories.
+
+    Equivalent to 'mkdir -p'
+    '''
+    try:
+        makedirs(path)
+    except OSError as exc:  # Python >2.5
+        if exc.errno == errno.EEXIST and isdir(path):
+            pass
+        else:
+            raise
 
 
 def flatten(x):
@@ -139,7 +59,7 @@ def flatten(x):
     return result
 
 
-def yes_or_no(message=""):
+def yes_or_no(message="Yes or No? "):
     '''Prompt to answer 'yes' or 'no'.
     '''
     while True:

@@ -14,7 +14,7 @@ def form_sample_table(d,
                     'R1_unpaired': r'R1_[0-9]{3}_unpaired',
                     'R2_paired':   r'R2_[0-9]{3}_paired',
                     'R2_unpaired': r'R2_[0-9]{3}_unpaired'}
-    samples = pd.DataFrame(columns=patterns)
+    samples = pd.DataFrame(columns=patterns.keys())
     for f in os.listdir(d):
         if negate:
             flag = not select(f)
@@ -24,9 +24,12 @@ def form_sample_table(d,
             try:
                 s_id = sid(f)
             except:
-                print(f)
+                raise ValueError('Can not extract sample ID from file name: %s'
+                                 % f)
+            # check the file name only satisfy one pattern
             t = [i for i in patterns if re.search(patterns[i], f)]
-            assert len(t) == 1, "File %s matches none or multiple patterns." % f
+            assert len(t) == 1, ('File name %s matches none or '
+                                 'multiple patterns.') % f
             samples.loc[s_id, t[0]] = f
 
     return samples
