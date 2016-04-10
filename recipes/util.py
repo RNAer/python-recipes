@@ -1,10 +1,53 @@
-from __future__ import print_function, unicode_literals
-
-from os import listdir, remove, rmdir, makedirs
+from os import listdir, remove, rmdir
 from os.path import isfile, isdir, join
 from numpy import concatenate, linspace
+from functools import wraps, partial
 import matplotlib
-import errno
+
+
+def debug(func=None, *, prefix=''):
+    '''Print debug msg for the decorated function.
+
+    This is borrowed from David Beazzly.
+
+    Parameters
+    ----------
+    func : function to be decorated.
+    prefix : the prefix string printed before func name.
+
+    Examples
+    --------
+    >>> from recipes.util import debug
+    >>> @debug
+    ... def add(x, y):
+    ...     i = x + y
+    ...     print(i)
+    ...     return i
+    >>> add(2, 3)
+    add
+    5
+    5
+    >>> @debug(prefix='***')
+    ... def add(x, y):
+    ...     i = x + y
+    ...     print(i)
+    ...     return i
+    ...
+    >>> add(2, 3)
+    ***add
+    5
+    5
+    '''
+    if func is None:
+        return partial(debug, prefix=prefix)
+
+    msg = prefix + func.__qualname__
+
+    @wraps(func)
+    def decorator(*args, **kwargs):
+        print(msg)
+        return func(*args, **kwargs)
+    return decorator
 
 
 def delete_dir(d):
@@ -21,22 +64,8 @@ def delete_dir(d):
     rmdir(d)
 
 
-def make_dir(path):
-    '''Create directories.
-
-    Equivalent to 'mkdir -p'
-    '''
-    try:
-        makedirs(path)
-    except OSError as exc:  # Python >2.5
-        if exc.errno == errno.EEXIST and isdir(path):
-            pass
-        else:
-            raise
-
-
 def flatten(x):
-    """Flatten any sequence to a flat list.
+    '''Flatten any sequence to a flat list.
 
     Returns a single, flat list which contains all elements retrieved
     from the sequence and all recursively contained sub-sequences
@@ -47,37 +76,36 @@ def flatten(x):
     [1, 2, 3, 4, 5, 6]
     >>> flatten([[[1,2,3], (42,None)], [4,5], [6], 7, MyVector(8,9,10)])
     [1, 2, 3, 42, None, 4, 5, 6, 7, 8, 9, 10]
-    """
+    '''
 
     result = []
     for el in x:
         # if isinstance(el, (list, tuple)):
-        if hasattr(el, "__iter__") and not isinstance(el, basestring):
+        if hasattr(el, "__iter__") and not isinstance(el, str):
             result.extend(flatten(el))
         else:
             result.append(el)
     return result
 
 
-def yes_or_no(message="Yes or No? "):
-    '''Prompt to answer 'yes' or 'no'.
-    '''
-    while True:
-        try:
-            reply = raw_input(message)
-        except EOFError:
-            print
-            continue
-        reply = reply.strip().lower()
-        if reply in ('y', 'yes'):
-            return True
-        elif reply in ('n', 'no'):
-            return False
-        else:
-            continue
-
-
 def traverse(o, tree_types=(list, tuple)):
+    '''Traverse the iterable types specified.
+
+    Yields
+    ------
+    atomic values in the input o.
+
+    Examples
+    --------
+    >>> list(traverse(['a', 'b']))
+    ['a', 'b']
+    >>> list(traverse(['a', 'b', ['B']]))
+    ['a', 'b', 'B']
+
+    See Also
+    --------
+    `flatten`
+    '''
     # borrowed from:
     # http://stackoverflow.com/questions/6340351/python-iterating-through-list-of-list
     if isinstance(o, tree_types):
@@ -86,6 +114,23 @@ def traverse(o, tree_types=(list, tuple)):
                 yield subvalue
     else:
         yield o
+
+
+def yes_or_no(message="Yes or No? "):
+    '''Prompt to answer 'yes' or 'no'.
+    '''
+    while True:
+        try:
+            reply = input(message)
+        except EOFError:
+            continue
+        reply = reply.strip().lower()
+        if reply in ('y', 'yes'):
+            return True
+        elif reply in ('n', 'no'):
+            return False
+        else:
+            continue
 
 
 def parse_function_call(expr):
@@ -121,7 +166,7 @@ def parse_function_call(expr):
 
 
 def cmap_discretize(cmap, N):
-    """Return a discrete colormap from the continuous colormap cmap.
+    '''Return a discrete colormap from the continuous colormap cmap.
 
     Parameters
     ----------
@@ -130,15 +175,19 @@ def cmap_discretize(cmap, N):
 
     Examples
     --------
-    >>> x = resize(arange(100), (5,100))
+    >>> from recipes.util import cmap_discretize
+    >>> from numpy import arange, resize
+    >>> from matplotlib import cm, pyplot
+    >>> x = resize(arange(100), (5, 100))
     >>> djet = cmap_discretize(cm.jet, 5)
-    >>> imshow(x, cmap=djet)
-    """
-    colors_i = concatenate((linspace(0, 1., N), (0.,0.,0.,0.)))
+    >>> pyplot.imshow(x, cmap=djet)
+    '''
+    colors_i = concatenate((linspace(0, 1., N), (0., 0., 0., 0.)))
     colors_rgba = cmap(colors_i)
     indices = linspace(0, 1., N+1)
     cdict = {}
-    for ki,key in enumerate(('red','green','blue')):
-        cdict[key] = [(indices[i], colors_rgba[i-1,ki], colors_rgba[i,ki]) for i in xrange(N+1)]
+    for ki, key in enumerate(('red', 'green', 'blue')):
+        cdict[key] = [(indices[i], colors_rgba[i-1, ki], colors_rgba[i, ki])
+                      for i in range(N+1)]
     # Return colormap object.
-    return matplotlib.colors.LinearSegmentedColormap(cmap.name + "_%d"%N, cdict, 1024)
+    return matplotlib.colors.LinearSegmentedColormap(cmap.name + "_%d" % N, cdict, 1024)
