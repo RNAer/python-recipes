@@ -71,10 +71,11 @@ def flatten(x):
     from the sequence and all recursively contained sub-sequences
     (iterables).
 
-    Examples:
+    Examples
+    --------
     >>> flatten([1, 2, [3,4], (5,6)])
     [1, 2, 3, 4, 5, 6]
-    >>> flatten([[[1,2,3], (42,None)], [4,5], [6], 7, MyVector(8,9,10)])
+    >>> flatten([[[1,2,3], (42,None)], [4,5], [6], 7, (8,9,10)])
     [1, 2, 3, 42, None, 4, 5, 6, 7, 8, 9, 10]
     '''
 
@@ -140,6 +141,7 @@ def parse_function_call(expr):
     --------
     >>> l = 'complement(join(97999..98793,69611..69724))'
     >>> parse_function_call(l)
+    ['complement', ['join', ['97999..98793', '69611..69724']]]
     '''
     def parser(iter):
         items = []
