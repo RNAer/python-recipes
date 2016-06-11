@@ -1,0 +1,18 @@
+# Check on http://lint.travis-ci.org/ after modifying it!
+language: python
+python:
+  - "3.5"
+os:
+  - linux
+#  - osx
+install:
+  - pip install pep8 flake8 coverage coveralls nose sphinx
+  - pip install .
+script:
+  - WITH_COVERAGE=TRUE make all
+after_success:
+  - coveralls
+notifications:
+  webhooks:
+    on_success: change
+    on_failure: always
