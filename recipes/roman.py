@@ -1,9 +1,9 @@
-"""Convert to and from Roman numerals
+'''Convert to and from Roman numerals
 
 This program is part of "Dive Into Python", a free Python book for
 experienced programmers.  Visit http://diveintopython.org/ for the
 latest version.
-"""
+'''
 
 
 import re
@@ -41,7 +41,15 @@ ROMAN_NUMERAL_MAP = (('M',  1000),
 
 
 def to_roman(n):
-    """convert integer to Roman numeral"""
+    '''convert integer to Roman numeral
+
+    Examples
+    --------
+    >>> to_roman(100)
+    'C'
+    >>> to_roman(3)
+    'III'
+    '''
     if not (0 < n < 5000):
         raise(OutOfRangeError, "number out of range (must be 1..4999)")
     if int(n) != n:
@@ -69,7 +77,15 @@ ROMAN_NUMERAL_PATTERN = re.compile('''
 
 
 def from_roman(s):
-    """convert Roman numeral to integer"""
+    '''convert Roman numeral to integer.
+
+    Examples
+    --------
+    >>> from_roman('C')
+    100
+    >>> from_roman('III')
+    3
+    '''
     if not s:
         raise(InvalidRomanNumeralError, 'Input can not be blank')
     if not ROMAN_NUMERAL_PATTERN.search(s):
