@@ -1,7 +1,6 @@
 import re
 import os
 import pandas as pd
-from collections import Iterator
 
 
 def compute_n50(nums, cutoff=500):
@@ -19,19 +18,23 @@ def compute_n50(nums, cutoff=500):
 
     Examples
     --------
-    >>> from . import compute_n50
     >>> nums = [400, 500, 502, 655, 634, 605, 590, 584, 552, 549, 545, 545, 542, 536, 526, 521, 517, 513]
     >>> compute_n50(nums)
-    ... 545
+    545
+    >>> compute_n50([0, 499])
+    0
+    >>> compute_n50(i for i in nums)
+    545
     '''
-    if isinstance(nums, Iterator):
-        raise TypeError('Must supply a container, not an iterator.')
-    n50_len = sum(i for i in nums if i >= cutoff) / 2
+    nums = [i for i in nums if i >= cutoff]
+    n50_len = sum(nums) / 2
     length = 0
     for i in sorted(nums, reverse=True):
         length += i
         if length >= n50_len:
             return i
+    # if nums is empty
+    return 0
 
 
 def create_sample_table(d, patterns=None,
@@ -59,10 +62,10 @@ def create_sample_table(d, patterns=None,
     pandas.DataFrame
     '''
     if patterns is None:
-        patterns = {'R1_paired':   r'R1_[0-9]{3}_paired',
-                    'R1_unpaired': r'R1_[0-9]{3}_unpaired',
-                    'R2_paired':   r'R2_[0-9]{3}_paired',
-                    'R2_unpaired': r'R2_[0-9]{3}_unpaired'}
+        patterns = {'R1_paired':   r'R1_paired',
+                    'R1_unpaired': r'R1_unpaired',
+                    'R2_paired':   r'R2_paired',
+                    'R2_unpaired': r'R2_unpaired'}
     samples = pd.DataFrame(columns=patterns.keys())
     for f in os.listdir(d):
         if negate:
