@@ -1,0 +1,4 @@
+#+TITILE: python recipes
+[[https://travis-ci.org/RNAer/python-recipes][https://travis-ci.org/RNAer/python-recipes.svg?branch=master]]
+
+This is a playground & central repo for some useful code.
