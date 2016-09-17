@@ -1,0 +1,4 @@
+pip
+nose
+pep8
+flake8
