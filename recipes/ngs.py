@@ -1,6 +1,87 @@
 import re
 import os
+import itertools
+
 import pandas as pd
+
+
+def equal_seqs(seqs_1, seqs_2):
+    '''Test two sequence collections are equal.
+
+    The sequences are compared by their sequence char
+    , their IDs, and their descriptions. If both are equal,
+    they are considered as the same.
+
+    Parameters
+    ----------
+    seqs_1, seqs_2 : list of skbio.Sequence
+    '''
+    if len(seqs_1) != len(seqs_2):
+        return False
+
+    def sortable_key(seq):
+        l = [str(seq)]
+        md = seq.metadata
+        for k in ['id', 'description']:
+            if k in md:
+                l.append(md[k])
+            else:
+                l.append('')
+        return l
+
+    for i, j in zip(sorted(seqs_1, key=sortable_key),
+                    sorted(seqs_2, key=sortable_key)):
+        if i != j:
+            return False
+    return True
+
+
+def split_paired_end(seq_fp, prefix):
+    '''Split reads of paired end into separate files.
+
+    Parameters
+    ----------
+    seq_fp : file object
+        file path to the input fastq.
+    '''
+    r1, r2, r1_unpaired, r2_unpaired = ([] for _ in range(4))
+
+    lines = seq_fp.readlines()
+    seqs = [lines[i:i + 4] for i in range(0, len(lines), 4)]
+    seqs.sort()
+
+    for seq_id, group in itertools.groupby(
+            seqs, key=lambda seq: seq[0].split(None, 1)[0]):
+        reads = list(group)
+        # print('%r   -->  %r' % (seq_id, reads))
+        strands = [read[0].split()[1][0] for read in reads]
+        if len(reads) == 2:
+            # seqs is sorted, so the 1st must be R1 and 2nd must be R2
+            r1.append(reads[0])
+            r2.append(reads[1])
+        elif len(reads) == 1:
+            if strands[0] == '1':
+                r1_unpaired.append(reads[0])
+            elif strands[0] == '2':
+                r2_unpaired.append(reads[0])
+        else:
+            raise ValueError('af')
+
+    files = [prefix + i for i in ['.r1.fq', '.r2.fq', '.r1_unpaired.fq', '.r2_unparied.fq']]
+    with open(files[0], 'w') as f:
+        for seq in r1:
+            f.write(''.join(seq))
+    with open(files[1], 'w') as f:
+        for seq in r2:
+            f.write(''.join(seq))
+    with open(files[2], 'w') as f:
+        for seq in r1_unpaired:
+            f.write(''.join(seq))
+    with open(files[3], 'w') as f:
+        for seq in r2_unpaired:
+            f.write(''.join(seq))
+
+    return files
 
 
 def compute_n50(nums, cutoff=500):
