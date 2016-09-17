@@ -1,8 +1,30 @@
-from os import listdir, remove, rmdir
-from os.path import isfile, isdir, join
 from numpy import concatenate, linspace
 from functools import wraps, partial
+from collections import Iterable
 import matplotlib
+
+
+def which_df(df, select=lambda x: x is True):
+    '''`which` function for pandas data frame.
+
+    It yields the index and column that satisfy
+    the select function.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+    select : callable
+        accept the value of a cell in the data frame
+        and return a boolean.
+    Yields
+    ------
+    tuple
+        index, column
+    '''
+    for i in df.index:
+        for j in df.columns:
+            if select(df.loc[i, j]):
+                yield i, j
 
 
 def debug(func=None, *, prefix=''):
@@ -50,20 +72,6 @@ def debug(func=None, *, prefix=''):
     return decorator
 
 
-def delete_dir(d):
-    ''' Deletes a directory and its content recursively.
-    '''
-    for name in listdir(d):
-        fp = join(d, name)
-        if not isfile(fp) and isdir(fp):
-            # It's another directory - recurse in to it...
-            delete_dir(fp)
-        else:
-            # It's a file - remove it...
-            remove(fp)
-    rmdir(d)
-
-
 def flatten(x):
     '''Flatten any sequence to a flat list.
 
@@ -82,7 +90,7 @@ def flatten(x):
     result = []
     for el in x:
         # if isinstance(el, (list, tuple)):
-        if hasattr(el, "__iter__") and not isinstance(el, str):
+        if isinstance(el, Iterable) and not isinstance(el, str):
             result.extend(flatten(el))
         else:
             result.append(el)
@@ -100,8 +108,8 @@ def traverse(o, tree_types=(list, tuple)):
     --------
     >>> list(traverse(['a', 'b']))
     ['a', 'b']
-    >>> list(traverse(['a', 'b', ['B']]))
-    ['a', 'b', 'B']
+    >>> list(traverse(['a', 'b', ['bB']]))
+    ['a', 'b', 'bB']
 
     See Also
     --------
@@ -182,7 +190,8 @@ def cmap_discretize(cmap, N):
     >>> from matplotlib import cm, pyplot
     >>> x = resize(arange(100), (5, 100))
     >>> djet = cmap_discretize(cm.jet, 5)
-    >>> pyplot.imshow(x, cmap=djet)
+    >>> pyplot.imshow(x, cmap=djet)  # doctest: +ELLIPSIS
+    <matplotlib.image.AxesImage object at ...>
     '''
     colors_i = concatenate((linspace(0, 1., N), (0., 0., 0., 0.)))
     colors_rgba = cmap(colors_i)
