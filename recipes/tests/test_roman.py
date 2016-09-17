@@ -5,7 +5,7 @@ experienced programmers.  Visit http://diveintopython.org/ for the
 latest version.
 """
 
-from zech import roman
+from recipes import roman
 import unittest
 
 
