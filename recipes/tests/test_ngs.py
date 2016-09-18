@@ -26,8 +26,8 @@ class Tests(TestCase):
             for i in files:
                 open(join(d, i), 'w').close()
             obs = create_sample_table(
-                d,
-                sid=lambda x: re.split('_R[12]_', x)[0],
+                d, types, types,
+                get_id=lambda x: re.split('_R[12]_', x)[0],
                 select=lambda x: x.endswith('.fq'))
 
             self.assertEqual(exp.to_dict(), obs.to_dict())

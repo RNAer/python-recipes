@@ -3,6 +3,8 @@ import os
 import itertools
 import gzip
 import mmap
+from logging import getLogger
+from collections import defaultdict
 
 import pandas as pd
 
@@ -10,12 +12,10 @@ import pandas as pd
 def equal_seqs(seqs_1, seqs_2):
     '''Test two sequence collections are equal.
 
-
-
-
     The sequences are compared by their sequence char,
     their IDs, and their descriptions. If both are equal,
-    they are considered as the same.
+    they are considered as the same. Their order does
+    not matter.
 
     Parameters
     ----------
@@ -41,17 +41,18 @@ def equal_seqs(seqs_1, seqs_2):
     return True
 
 
-def split_paired_end(seq_fp, prefix):
+def split_paired_end(fastq, prefix):
     '''Split reads of paired end into separate files.
 
     Parameters
     ----------
-    seq_fp : file object
+    fastq : file object
         file path to the input fastq.
     '''
     r1, r2, r1_unpaired, r2_unpaired = ([] for _ in range(4))
 
-    lines = seq_fp.readlines()
+    lines = fastq.readlines()
+    # each seq has 4 lines in fastq file
     seqs = [lines[i:i + 4] for i in range(0, len(lines), 4)]
     seqs.sort()
 
@@ -70,22 +71,15 @@ def split_paired_end(seq_fp, prefix):
             elif strands[0] == '2':
                 r2_unpaired.append(reads[0])
         else:
-            raise ValueError('af')
+            raise ValueError(
+                'You have more than two reads in {}'.format(reads))
 
     files = ['{}.{}.fq.gz'.format(prefix, i) for i in
              ['r1', 'r2', 'r1_unpaired', 'r2_unpaired']]
-    with gzip.open(files[0], 'wt') as f:
-        for seq in r1:
-            f.write(''.join(seq))
-    with gzip.open(files[1], 'wt') as f:
-        for seq in r2:
-            f.write(''.join(seq))
-    with gzip.open(files[2], 'wt') as f:
-        for seq in r1_unpaired:
-            f.write(''.join(seq))
-    with gzip.open(files[3], 'wt') as f:
-        for seq in r2_unpaired:
-            f.write(''.join(seq))
+    for r, f in zip([r1, r2, r1_unpaired, r2_unpaired], files):
+        with gzip.open(f, 'wt') as fh:
+            for seq in r:
+                fh.write(''.join(seq))
 
     return files
 
@@ -124,21 +118,27 @@ def compute_n50(nums, cutoff=500):
     return 0
 
 
-def create_sample_table(d, patterns=None,
-                        sid=lambda x: re.split('_L00[0-9]_R[12]_', x)[0],
+def create_sample_table(d,
+                        file_types, pattern_types,
+                        get_id=lambda x: re.split('_L00[0-9]_R[12]_', x)[0],
                         select=lambda x: x.endswith('.fq.gz'),
                         negate=False):
     '''Return a sample-by-file-path table of the raw sequence files.
+
+    Notes
+    -----
+    The returned data frame can serve as the input for operations done on
+    each file. For example, you can calculate the reads number of each
+    file using `pd.DataFrame.applymap`.
 
     Parameters
     ----------
     d : str
         dir to the raw sequence files
-    patterns : dict-like
-        file patterns for each sample. keys will be used as column name
-        of the return table and values will be used in `re.search`
-    sid : callable
-        how to create sample IDs from sequence file name
+    file_types : list
+    pattern_types : list
+    get_id : callable
+        how to create sample ID from a sequence file name
     select : callable
         what files to include
     negate : boolean
@@ -148,12 +148,15 @@ def create_sample_table(d, patterns=None,
     -------
     pandas.DataFrame
     '''
-    if patterns is None:
-        patterns = {'R1_paired':   r'R1_paired',
-                    'R1_unpaired': r'R1_unpaired',
-                    'R2_paired':   r'R2_paired',
-                    'R2_unpaired': r'R2_unpaired'}
-    samples = pd.DataFrame(columns=patterns.keys())
+    if len(file_types) != len(pattern_types):
+        raise ValueError(
+            'You need to provide a pattern ({}) '
+            'for each file type ({}).'.format(pattern_types, file_types))
+
+    logger = getLogger(__name__)
+
+    samples = defaultdict(list)
+
     for f in os.listdir(d):
         if negate:
             flag = not select(f)
@@ -161,17 +164,54 @@ def create_sample_table(d, patterns=None,
             flag = select(f)
         if flag:
             try:
-                s_id = sid(f)
+                sid = get_id(f)
             except:
                 raise ValueError('Can not extract sample ID from file name: %s' % f)
-            # check the file name only matches one unique pattern
-            t = [i for i in patterns if re.search(patterns[i], f)]
-            if len(t) != 1:
-                raise ValueError('File name {} matches none or multiple patterns: {}'.format(f, t))
+            samples[sid].append(f)
 
-            samples.loc[s_id, t[0]] = f
+    for sid, files in samples.items():
+        if len(files) != len(file_types):
+            logger.warning(
+                'For sample {}, you have unmatching file names:\n'
+                '{}\n'
+                'and file types:\n'
+                '{}'.format(sid, files, file_types))
+        # check the file name only matches one unique pattern
+        sort_by_pattern(files, pattern_types)
 
-    return samples
+    df = pd.DataFrame.from_dict(samples, orient='index')
+    df.columns = file_types
+
+    return df
+
+
+def sort_by_pattern(to_sort, patterns):
+    '''Sort the list by the order of matching patterns.
+
+    Notes
+    -----
+    It sorts in place.
+
+    Examples
+    --------
+    >>> a = ['a_R2_paired.fq', 'a_R1_paired.fq',
+    ...      'a_R1_unpaired.fq', 'a_R2_unpaired.fq']
+    >>> p = ['R1_paired', 'R2_paired', 'R1_unpaired', 'R2_unpaired']
+    >>> sort_by_pattern(a, p)
+    >>> a
+    ['a_R1_paired.fq', 'a_R2_paired.fq', 'a_R1_unpaired.fq', 'a_R2_unpaired.fq']
+    >>> b = ['a_R2_unpaired.fq', 'a_R1_paired.fq']
+    >>> sort_by_pattern(b, p)
+    >>> b
+    ['a_R1_paired.fq', 'a_R2_unpaired.fq']
+    '''
+    def _sort_key(s):
+        l = [i for i, p in enumerate(patterns) if re.search(p, s)]
+        if len(l) > 1:
+            raise ValueError('')
+        return l[0]
+
+    to_sort.sort(key=_sort_key)
 
 
 def count_lines(filename):
@@ -183,14 +223,14 @@ def count_lines(filename):
 
 
 def mapcount_lines(filename):
-    '''Count line number in a file with ``mmap``.
+    r'''Count line number in a file with `mmap`.
 
     It is faster than reading the file line by line.
 
     Notes
     -----
     It won't count the real line number of a compressed file,
-    as ``mmap`` maps disk blocks into RAM almost as if
+    as `mmap` maps disk blocks into RAM almost as if
     you were adding swap. For a compressed file, you can't
     map the uncompressed data into RAM with mmap() as it is
     not on the disk.
@@ -199,9 +239,9 @@ def mapcount_lines(filename):
     --------
     >>> from tempfile import NamedTemporaryFile
     >>> with NamedTemporaryFile(delete=False) as fh:
-    ...     fh.write(b'a\nb\nc')
+    ...     _ = fh.write(b'a\nb\nc')
     ...     fh.close()
-    ...     lc = mapcount(fh.name)
+    ...     lc = mapcount_lines(fh.name)
     ...     print(lc)
     3
     '''
