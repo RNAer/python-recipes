@@ -2,6 +2,7 @@ from unittest import TestCase, main
 from tempfile import TemporaryDirectory
 from os.path import join
 import re
+import gzip
 
 import numpy as np
 import pandas as pd
@@ -9,7 +10,9 @@ from skbio.util import get_data_path
 from skbio import DNA
 import skbio
 
-from recipes.ngs import create_sample_table, split_paired_end, equal_seqs
+from recipes.ngs import (
+    create_sample_table, split_paired_end, equal_seqs,
+    count_gzip_lines)
 
 
 class Tests(TestCase):
@@ -36,15 +39,23 @@ class Tests(TestCase):
 
     def test_split_paired_end(self):
         merged, r1, r2, r1_unpaired, r2_unpaired = [
-            get_data_path(i) for i in
-            ['merged.fq', 'r1.fq', 'r2.fq',
-             'r1_unpaired.fq', 'r2_unpaired.fq']]
-        with TemporaryDirectory() as d, open(merged) as fh:
+            get_data_path(i) + '.fq.gz' for i in
+            ['merged', 'r1', 'r2',
+             'r1_unpaired', 'r2_unpaired']]
+        with TemporaryDirectory() as d, gzip.open(merged, 'rt') as fh:
             fs = split_paired_end(fh, prefix=join(d, 'test'))
             for i, j in zip([r1, r2, r1_unpaired, r2_unpaired], fs):
                 obs = list(skbio.io.read(i, format='fastq'))
                 exp = list(skbio.io.read(j, format='fastq'))
                 self.assertTrue(equal_seqs(obs, exp))
+
+    def test_count_gzip_lines(self):
+        files = [
+            get_data_path(i) + '.fq.gz' for i in
+            ['r1', 'r2', 'r1_unpaired', 'r2_unpaired']]
+        lines = [8, 8, 8, 8]
+        for f, l in zip(files, lines):
+            self.assertEqual(count_gzip_lines(f), l)
 
 
 if __name__ == '__main__':

@@ -1,6 +1,8 @@
 import re
 import os
 import itertools
+import gzip
+import mmap
 
 import pandas as pd
 
@@ -8,8 +10,11 @@ import pandas as pd
 def equal_seqs(seqs_1, seqs_2):
     '''Test two sequence collections are equal.
 
-    The sequences are compared by their sequence char
-    , their IDs, and their descriptions. If both are equal,
+
+
+
+    The sequences are compared by their sequence char,
+    their IDs, and their descriptions. If both are equal,
     they are considered as the same.
 
     Parameters
@@ -67,17 +72,18 @@ def split_paired_end(seq_fp, prefix):
         else:
             raise ValueError('af')
 
-    files = [prefix + i for i in ['.r1.fq', '.r2.fq', '.r1_unpaired.fq', '.r2_unparied.fq']]
-    with open(files[0], 'w') as f:
+    files = ['{}.{}.fq.gz'.format(prefix, i) for i in
+             ['r1', 'r2', 'r1_unpaired', 'r2_unpaired']]
+    with gzip.open(files[0], 'wt') as f:
         for seq in r1:
             f.write(''.join(seq))
-    with open(files[1], 'w') as f:
+    with gzip.open(files[1], 'wt') as f:
         for seq in r2:
             f.write(''.join(seq))
-    with open(files[2], 'w') as f:
+    with gzip.open(files[2], 'wt') as f:
         for seq in r1_unpaired:
             f.write(''.join(seq))
-    with open(files[3], 'w') as f:
+    with gzip.open(files[3], 'wt') as f:
         for seq in r2_unpaired:
             f.write(''.join(seq))
 
@@ -166,3 +172,51 @@ def create_sample_table(d, patterns=None,
             samples.loc[s_id, t[0]] = f
 
     return samples
+
+
+def count_lines(filename):
+    ''''''
+    if filename.endswith('.gz'):
+        return count_gzip_lines(filename)
+    else:
+        return mapcount_lines(filename)
+
+
+def mapcount_lines(filename):
+    '''Count line number in a file with ``mmap``.
+
+    It is faster than reading the file line by line.
+
+    Notes
+    -----
+    It won't count the real line number of a compressed file,
+    as ``mmap`` maps disk blocks into RAM almost as if
+    you were adding swap. For a compressed file, you can't
+    map the uncompressed data into RAM with mmap() as it is
+    not on the disk.
+
+    Examples
+    --------
+    >>> from tempfile import NamedTemporaryFile
+    >>> with NamedTemporaryFile(delete=False) as fh:
+    ...     fh.write(b'a\nb\nc')
+    ...     fh.close()
+    ...     lc = mapcount(fh.name)
+    ...     print(lc)
+    3
+    '''
+    with open(filename, "rb") as f:
+        with mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ) as buf:
+            lines = 0
+            while buf.readline():
+                lines += 1
+            return lines
+
+
+def count_gzip_lines(filename):
+    '''Count line number in a gzipped file.
+    '''
+    with gzip.open(filename) as f:
+        for i, l in enumerate(f, 1):
+            pass
+        return i
