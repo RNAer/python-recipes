@@ -1,6 +1,10 @@
-from numpy import concatenate, linspace
 from functools import wraps, partial
 from collections import Iterable
+import time
+import os
+from contextlib import contextmanager
+
+from numpy import concatenate, linspace
 import matplotlib
 
 
@@ -27,10 +31,61 @@ def which_df(df, select=lambda x: x is True):
                 yield i, j
 
 
+def time_func(func):
+    '''Time the docorated function.
+
+    Parameters
+    ----------
+    func : function to be decorated.
+    prefix : the prefix string printed before func name.
+
+    Examples
+    --------
+    >>> @time_func
+    ... def countdown(n):
+    ...     while n > 0:
+    ...         n -= 1
+    >>> countdown(100)   # doctest: +ELLIPSIS
+    recipes.util.countdown: ...
+    '''
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        start = time.perf_counter()
+        r = func(*args, **kwargs)
+        end = time.perf_counter()
+        print('{}.{}: {}'.format(
+            func.__module__, func.__qualname__, end-start))
+        return r
+    return wrapper
+
+
+@contextmanager
+def time_block(label):
+    '''Time a block of statments.
+
+    Examples
+    --------
+    >>> with time_block('time countdown'):  # doctest: +ELLIPSIS
+    ...     n = 100
+    ...     while n > 0:
+    ...         n -= 1
+    time countdown: ...
+    '''
+    start = time.perf_counter()
+    try:
+        yield
+    finally:
+        end = time.perf_counter()
+    print('{}: {}'.format(label, end - start))
+
+
 def debug(func=None, *, prefix=''):
     '''Print debug msg for the decorated function.
 
-    This is borrowed from David Beazzly.
+    This is borrowed from David Beazzly's talk of Python 3
+    Metaprogramming. So when you insert a print in a function, the
+    function name will also be printed with a prefix to be easily
+    identified.
 
     Parameters
     ----------
@@ -59,10 +114,15 @@ def debug(func=None, *, prefix=''):
     ***add
     5
     5
+
     '''
+    # if 'DEBUG' not in os.environ:
+    #     return func
+
     if func is None:
         return partial(debug, prefix=prefix)
 
+    # __qualname__ fully qualified name (with class name)
     msg = prefix + func.__qualname__
 
     @wraps(func)
