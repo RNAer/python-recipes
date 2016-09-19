@@ -132,57 +132,35 @@ def debug(func=None, *, prefix=''):
     return decorator
 
 
-def flatten(x):
-    '''Flatten any sequence to a flat list.
+def flatten(items, ignore_types=(str, bytes)):
+    '''Flatten any nested iterators.
 
-    Returns a single, flat list which contains all elements retrieved
+    Returns a single, flat iterator which contains all elements retrieved
     from the sequence and all recursively contained sub-sequences
     (iterables).
 
+    Parameters
+    ----------
+    items : Iterable
+    ignore_types : type
+        variable type you ignore to iterate thru.
+
+    Return
+    ------
+    Iterator
+
     Examples
     --------
-    >>> flatten([1, 2, [3,4], (5,6)])
+    >>> list(flatten([1, 2, [3,4], (5,6)]))
     [1, 2, 3, 4, 5, 6]
-    >>> flatten([[[1,2,3], (42,None)], [4,5], [6], 7, (8,9,10)])
+    >>> list(flatten([[[1,2,3], (42,None)], [4,5], [6], 7, (8,9,10)]))
     [1, 2, 3, 42, None, 4, 5, 6, 7, 8, 9, 10]
     '''
-
-    result = []
-    for el in x:
-        # if isinstance(el, (list, tuple)):
-        if isinstance(el, Iterable) and not isinstance(el, str):
-            result.extend(flatten(el))
+    for x in items:
+        if isinstance(x, Iterable) and not isinstance(x, ignore_types):
+            yield from flatten(x)
         else:
-            result.append(el)
-    return result
-
-
-def traverse(o, tree_types=(list, tuple)):
-    '''Traverse the iterable types specified.
-
-    Yields
-    ------
-    atomic values in the input o.
-
-    Examples
-    --------
-    >>> list(traverse(['a', 'b']))
-    ['a', 'b']
-    >>> list(traverse(['a', 'b', ['bB']]))
-    ['a', 'b', 'bB']
-
-    See Also
-    --------
-    `flatten`
-    '''
-    # borrowed from:
-    # http://stackoverflow.com/questions/6340351/python-iterating-through-list-of-list
-    if isinstance(o, tree_types):
-        for value in o:
-            for subvalue in traverse(value):
-                yield subvalue
-    else:
-        yield o
+            yield x
 
 
 def yes_or_no(message="Yes or No? "):
