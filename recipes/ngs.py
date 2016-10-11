@@ -7,6 +7,7 @@ from logging import getLogger
 from collections import defaultdict
 
 import pandas as pd
+from skbio.io import read
 
 
 def equal_seqs(seqs_1, seqs_2):
@@ -99,7 +100,8 @@ def compute_n50(nums, cutoff=500):
 
     Examples
     --------
-    >>> nums = [400, 500, 502, 655, 634, 605, 590, 584, 552, 549, 545, 545, 542, 536, 526, 521, 517, 513]
+    >>> nums = [400, 500, 502, 655, 634, 605, 590, 584, 552,
+    ...         549, 545, 545, 542, 536, 526, 521, 517, 513]
     >>> compute_n50(nums)
     545
     >>> compute_n50([0, 499])
@@ -177,7 +179,8 @@ def create_sample_table(d,
                 'and file types:\n'
                 '{}'.format(sid, files, file_types))
         # check the file name only matches one unique pattern
-        sort_by_pattern(files, pattern_types)
+        sorting = sort_by_pattern(pattern_types)
+        files.sort(key=sorting)
 
     df = pd.DataFrame.from_dict(samples, orient='index')
     df.columns = file_types
@@ -185,25 +188,26 @@ def create_sample_table(d,
     return df
 
 
-def sort_by_pattern(to_sort, patterns):
+def sort_by_pattern(patterns):
     '''Sort the list by the order of matching patterns.
-
-    Notes
-    -----
-    It sorts in place.
 
     Examples
     --------
     >>> a = ['a_R2_paired.fq', 'a_R1_paired.fq',
     ...      'a_R1_unpaired.fq', 'a_R2_unpaired.fq']
     >>> p = ['R1_paired', 'R2_paired', 'R1_unpaired', 'R2_unpaired']
-    >>> sort_by_pattern(a, p)
+    >>> match = sort_by_pattern(p)
+    >>> a.sort(key=match)
     >>> a
     ['a_R1_paired.fq', 'a_R2_paired.fq', 'a_R1_unpaired.fq', 'a_R2_unpaired.fq']
     >>> b = ['a_R2_unpaired.fq', 'a_R1_paired.fq']
-    >>> sort_by_pattern(b, p)
+    >>> b.sort(key=match)
     >>> b
     ['a_R1_paired.fq', 'a_R2_unpaired.fq']
+    >>> c = ['a_R2_unpaired.fq', 'a_R1_paired.fq', 'b_R1_paired.fq']
+    >>> c.sort(key=match)
+    >>> c
+    ['a_R1_paired.fq', 'b_R1_paired.fq', 'a_R2_unpaired.fq']
     '''
     def _sort_key(s):
         l = [i for i, p in enumerate(patterns) if re.search(p, s)]
@@ -211,11 +215,11 @@ def sort_by_pattern(to_sort, patterns):
             raise ValueError('')
         return l[0]
 
-    to_sort.sort(key=_sort_key)
+    return _sort_key
 
 
 def count_lines(filename):
-    ''''''
+    '''Count line number in a file.'''
     if filename.endswith('.gz'):
         return count_gzip_lines(filename)
     else:
@@ -260,3 +264,32 @@ def count_gzip_lines(filename):
         for i, l in enumerate(f, 1):
             pass
         return i
+
+
+def count_seq(filename):
+    '''Count seq number in the file.
+
+    The file can be gzipped.
+    '''
+    for i, s in enumerate(read(filename, format='fasta'), 1):
+        pass
+    return i
+
+
+def summarize_blast6(filename):
+    df = read(filename, format="blast+6", into=pd.DataFrame, default_columns=True)
+    df_best = filter_best(df)
+
+
+def filter_best_blast_hit(df, column='evalue'):
+    '''Filter out the best hits by their e-value or bitscore.'''
+    # pick the rows that have highest score for each qseqid
+    # df_max = df.groupby('qseqid').apply(
+    #     lambda r: r[r[column] == r[column].max()])
+    if column == 'evalue':
+        idx = df.groupby('qseqid')[column].idxmin()
+    elif column == 'bitscore':
+        idx = df.groupby('qseqid')[column].idxmax()
+    df_best = df.loc[idx]
+    # df_best.set_index('qseqid', drop=True, inplace=True)
+    return df_best
