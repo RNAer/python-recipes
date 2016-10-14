@@ -1,5 +1,5 @@
 from functools import wraps, partial
-from collections import Iterable
+from collections import Iterable, defaultdict
 import time
 import os
 from contextlib import contextmanager
@@ -29,6 +29,21 @@ def which_df(df, select=lambda x: x is True):
         for j in df.columns:
             if select(df.loc[i, j]):
                 yield i, j
+
+
+def dict_indices(it):
+    '''Convert a iterable into a dict.
+
+    Examples
+    --------
+    >>> l = (i for i in ['a', 'b', 'a'])
+    >>> dict_indices(l)
+    defaultdict(<class 'list'>, {'b': [1], 'a': [0, 2]})
+    '''
+    res = defaultdict(list)
+    for i, s in enumerate(it):
+        res[s].append(i)
+    return res
 
 
 def time_func(func):
@@ -155,6 +170,10 @@ def flatten(items, ignore_types=(str, bytes)):
     [1, 2, 3, 4, 5, 6]
     >>> list(flatten([[[1,2,3], (42,None)], [4,5], [6], 7, (8,9,10)]))
     [1, 2, 3, 42, None, 4, 5, 6, 7, 8, 9, 10]
+    >>> list(flatten([1, 2, 'abc'], ignore_types=()))
+    [1, 2, 'a', 'b', 'c']
+    >>> list(flatten([1, 2, 'abc']))
+    [1, 2, 'abc']
     '''
     for x in items:
         if isinstance(x, Iterable) and not isinstance(x, ignore_types):
