@@ -11,7 +11,7 @@ from matplotlib import cm
 from matplotlib.lines import Line2D
 
 
-def plot_abund_prev(table, grouping, colors=None, alpha=0.5, log=True):
+def plot_abundance_prevalence(table, grouping, colors=None, alpha=0.5, log=True):
     '''Plot abundance against prevalence.
 
     Prevalence/abundance curve is a chart used to visualize the
@@ -22,7 +22,7 @@ def plot_abund_prev(table, grouping, colors=None, alpha=0.5, log=True):
     among the population. If many OTUs show in steep curves, it
     indicates the population has a core set microbes.
 
-    Y-axis: prevalance of the OTU that above the abundance threshold.
+    Y-axis: prevalence of the OTU that above the abundance threshold.
 
     X-axis: abundance threshold. log-scale.
 
@@ -32,8 +32,6 @@ def plot_abund_prev(table, grouping, colors=None, alpha=0.5, log=True):
     ----------
     table : 2-D array-like
         rows are samples and columns are species
-    step_size : numeric
-        the step size for abundance threshold
     grouping : dict
         keys are categories and values are the row indices
         for each category
@@ -57,15 +55,15 @@ def plot_abund_prev(table, grouping, colors=None, alpha=0.5, log=True):
         sub_sample_size = sub_sample.shape[1]
         for species in sub_sample.T:
             # unique values are sorted
-            unique, counts = np.unique(sepcies, return_counts=True)
+            unique, counts = np.unique(species, return_counts=True)
             cum_counts = np.cumsum(counts)
-            ax.plot(cum_counts / sub_sample_size, color=colors[category], alpha=alpha)
+            ax.plot(unique, cum_counts / sub_sample_size, color=colors[category], alpha=alpha)
 
-    ax.set_xlabel('prevalence')
+    ax.set_ylabel('prevalence')
     if log is True:
-        ax.set_ylabel('log(abundance)')
+        ax.set_xlabel('log(abundance)')
     else:
-        ax.set_ylabel('abundance')
+        ax.set_xlabel('abundance')
 
     lines = [Line2D([0,1], [0, 1], color=colors[c]) for c in categories]
     ax.legend(lines, categories, numpoints=1, markerscale=2)
@@ -128,7 +126,8 @@ def plot_rank_abundance(table, grouping, colors=None, alpha=0.5, log=True):
             y = np.trim_zeros(abundance[::-1])
             if log is True:
                 y = np.log(y)
-            ax.plot(y, '-o', markersize=7, color=colors[category], alpha=alpha)
+            ax.plot(y, '-o', markersize=7, markeredgewidth=0.0,
+                    color=colors[category], alpha=alpha)
 
     bottom, _ = ax.get_ylim()
     ax.set_ylim(bottom=bottom-0.1)
@@ -142,3 +141,15 @@ def plot_rank_abundance(table, grouping, colors=None, alpha=0.5, log=True):
     ax.legend(lines, categories, numpoints=1, markerscale=2)
 
     return fig
+
+
+if __name__ == '__main__':
+    import sys
+    from recipes.util import dict_indices
+    from microLearner.study import Study
+    a = Study.read(sys.argv[1], sys.argv[2])
+    a.matchup()
+    grouping = dict_indices(a.sample_metadata[sys.argv[3]])
+    # fig = plot_rank_abundance(a.data.values.astype(float), grouping)
+    fig = plot_abundance_prevalence(a.data.values.astype(float), grouping)
+    fig.savefig('/tmp/a.png')
