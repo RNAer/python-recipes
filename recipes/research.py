@@ -4,7 +4,8 @@ from os.path import join
 
 
 def interface():
-    args = argparse.ArgumentParser()
+    args = argparse.ArgumentParser(
+        description='This creates the necessary files and dir structure for a project.')
     args.add_argument('-d', help='project directory name', required=True)
     args.add_argument('-r', help='remote server', default='barnacle')
     args = args.parse_args()
@@ -29,7 +30,6 @@ SIZE = 100m
 FILE = rsync.ie
 
 
-
 # size filter
 ifeq ($(SIZE),)
     SIZE_FILTER =
@@ -44,15 +44,15 @@ else
     FILE_FILTER = --filter '. $(FILE)'
 endif
 
-FLAGS = -avuhzi --prune-empty-dirs $(FILE_FILTER) $(SIZE_FILTER) -e ssh
+FLAGS = -avuhzi --prune-empty-dirs -e ssh
 
 pull:
-\trsync $(FLAGS) -n $(REMOTE):$(DIR)/ .
+\trsync $(FLAGS) $(FILE_FILTER) $(SIZE_FILTER) -n $(REMOTE):$(DIR)/ .
 push:
 \trsync $(FLAGS) -n . $(REMOTE):$(DIR)/
 
 pull_real:
-\trsync $(FLAGS) $(REMOTE):$(DIR)/ .
+\trsync $(FLAGS) $(FILE_FILTER) $(SIZE_FILTER) $(REMOTE):$(DIR)/ .
 push_real:
 \trsync $(FLAGS) . $(REMOTE):$(DIR)/
 '''.format(remote=remote, d=d)
@@ -76,13 +76,28 @@ push_real:
 + /config*
 + /*.json
 - /*/*untrimmed*
-+ /dir_under_the_root/
++ /scripts/
 # double asterisks is for both / and other char to include subdir
-+ /dir_under_the_root/**
++ /scripts/**
 
 # Exclude all the files
 - *
 '''
+
+    gitignore = '''
+# Ignore everything
+/*
+
+# But not these files...
+!.gitignore
+!Makefile
+!rsync.ie
+!README*
+!readme*
+!scripts/*
+!Snakefile
+'''
+
     os.mkdir(d)
 
     with open(join(d, 'Makefile'), 'w') as f:
@@ -91,11 +106,17 @@ push_real:
     with open(join(d, 'rsync.ie'), 'w') as f:
         f.write(ie)
 
+    with open(join(d, '.gitignore'), 'w') as f:
+        f.write(gitignore)
+
     docd = join(d, 'doc')
     os.mkdir(docd)
 
     datad = join(d, 'data')
     os.mkdir(datad)
+
+    scriptsd = join(d, 'scripts')
+    os.mkdir(scriptsd)
 
 
 if __name__ == '__main__':
