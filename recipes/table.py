@@ -4,15 +4,67 @@ Functions manipulating 2-D tables
 
 '''
 
+from numbers import Real
+
 import pandas as pd
 import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib import cm
 from matplotlib.lines import Line2D
 
+from .util import grouping
+
+
+def plot(df, value, group_col, apply_col, colors, lines):
+    fig, ax = plt.subplots()
+    for (group, sub_df), jitter in zip(df.groupby(group_col), [-0.3, -0.1,  0.1,  0.3]):
+        grouped = sub_df.groupby(apply_col)
+        agg = grouped.agg([np.mean, np.std])
+        data = agg[value]
+        x = data.index.values
+        y = data['mean'].values
+        yerr = data['std'].values
+        ax.errorbar(x + jitter, y, yerr=yerr, color=colors[group], line=line[color])
+        ax.set_xlim(0, 24)
+        ax.set_xticks(x)
+    return fig
+
+
+def plot_with_errorbar(x, y, yerror, xerror=None):
+    '''
+    Parameters
+    ----------
+    y : array-like
+    x : array-like
+    error : callable to calculate errors
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import matplotlib.pyplot as plt
+
+    >>> x = np.arange(0.1, 4, 0.5)
+    >>> y = np.exp(-x)
+    >>> xerror = 0.1 + 0.2 * x
+    >>> lower_error = 0.4 * error
+    >>> upper_error = error
+    >>> yerror = [lower_error, upper_error]
+    >>> plot_with_errorbar(x, y, xerror, yerror)
+
+    '''
+    fig, ax = plt.subplots()
+    if isinstance(x[0], Real):
+        ax.errorbar(x, y, xerr=xerror, yerr=yerror)
+    else:
+        ax.barplot()
+    return fig
+
 
 def compute_prevalence(abundance):
     '''Return the prevalence at each abundance cutoffs.
+
+    Each sample that has the OTU above the cutoff (exclusive) will
+    be counted.
 
     Parameters
     ----------
@@ -83,8 +135,6 @@ def plot_abundance_prevalence(table, grouping, colors=None, alpha=0.5, log=True,
     Y-axis: prevalence of the OTU that above the abundance threshold.
 
     X-axis: abundance threshold. log-scale.
-
-    Test on the IBD data.
 
     Parameters
     ----------
@@ -172,7 +222,7 @@ def plot_rank_abundance(table, grouping, colors=None, alpha=0.6, log=True, avera
     log : bool
         whether to plot abundance in log scale
     average : bool
-        plot the average for each group instead of plot each sample.
+        plot the average of each group instead of plot each sample.
 
     Returns
     -------
@@ -224,6 +274,6 @@ if __name__ == '__main__':
     grouping = dict_indices(md.itertuples(False))
     data = a.data.values.astype(float)
     data_normalize = normalize(data, axis=1, norm='l1')
-    # fig = plot_rank_abundance(a.data.values.astype(float), grouping, log=True)
-    fig = plot_abundance_prevalence_ave(data_normalize, grouping, log=True)
+    fig = plot_rank_abundance(a.data.values.astype(float), grouping, log=True, average=False)
+    # fig = plot_abundance_prevalence_ave(data_normalize, grouping, log=True)
     fig.savefig('/tmp/a.pdf')

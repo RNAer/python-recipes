@@ -46,6 +46,28 @@ def dict_indices(it):
     return res
 
 
+def grouping(it_x, it_y):
+    '''
+    Examples
+    --------
+    >>> x = [1, 1, 2, 1]
+    >>> y = [0.1, 0.13, 0.2, 0.11]
+    >>> res = grouping(x, y)
+    >>> from pprint import pprint
+    >>> pprint(res)
+    defaultdict(<class 'list'>, {1: [0.1, 0.13, 0.11], 2: [0.2]})
+
+    >>> x2 = ['a', 'a', 'b', 'a']
+    >>> res2 = grouping(x2, y)
+    >>> res2
+    defaultdict(<class 'list'>, {'a': [0.1, 0.13, 0.11], 'b': [0.2]})
+    '''
+    res = dict_indices(it_x)
+    for k in res:
+        res[k] = [it_y[i] for i in res[k]]
+    return res
+
+
 def time_func(func):
     '''Time the docorated function.
 
@@ -207,6 +229,12 @@ def parse_function_call(expr):
     >>> l = 'complement(join(97999..98793,69611..69724))'
     >>> parse_function_call(l)
     ['complement', ['join', ['97999..98793', '69611..69724']]]
+    >>> parse_function_call('join(12..78,134..202)')
+    ['join', ['12..78', '134..202']]
+    >>> parse_function_call('102.110')
+    ['102.110']
+    >>> parse_function_call('join(complement(4918..5163),complement(2691..4571))')
+    ['join', ['complement', ['4918..5163'], 'complement', ['2691..4571']]]
     '''
     def parser(iter):
         items = []
