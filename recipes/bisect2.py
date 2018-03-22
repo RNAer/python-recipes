@@ -119,8 +119,7 @@ class SortedCollection:
         return '%s(%r, key=%s)' % (
             self.__class__.__name__,
             self._items,
-            getattr(self._given_key, '__name__', repr(self._given_key))
-        )
+            getattr(self._given_key, '__name__', repr(self._given_key)))
 
     def __reduce__(self):
         return self.__class__, (self._items, self._given_key)
