@@ -8,64 +8,32 @@ from numpy import concatenate, linspace
 import matplotlib
 
 
-def which_df(df, select=lambda x: x is True):
-    '''`which` function for pandas data frame.
-
-    It yields the index and column that satisfy
-    the select function.
-
-    Parameters
-    ----------
-    df : pandas.DataFrame
-    select : callable
-        accept the value of a cell in the data frame
-        and return a boolean.
-    Yields
-    ------
-    tuple
-        index, column
-    '''
-    for i in df.index:
-        for j in df.columns:
-            if select(df.loc[i, j]):
-                yield i, j
+def _get_named_data_path(fname):
+    # get caller's file path
+    caller_fp = abspath(stack()[1][1])
+    d = dirname(caller_fp)
+    # remove file suffix and prefix of "test_"
+    name = splitext(basename(caller_fp))[0][5:]
+    return join(d, 'data', name, fname)
 
 
-def dict_indices(it):
-    '''Convert a iterable into a dict.
-
-    Examples
-    --------
-    >>> l = (i for i in ['a', 'b', 'a'])
-    >>> dict_indices(l)
-    defaultdict(<class 'list'>, {'b': [1], 'a': [0, 2]})
-    '''
-    res = defaultdict(list)
-    for i, s in enumerate(it):
-        res[s].append(i)
-    return res
+def _overwrite(path, overwrite=False, append=False):
+    if exists(path):
+        if overwrite:
+            if isdir(path):
+                shutil.rmtree(path)
+            else:
+                remove(path)
+        elif append:
+            return
+        else:
+            raise FileExistsError('The file path {} already exists.'.format(path))
 
 
-def grouping(it_x, it_y):
-    '''
-    Examples
-    --------
-    >>> x = [1, 1, 2, 1]
-    >>> y = [0.1, 0.13, 0.2, 0.11]
-    >>> res = grouping(x, y)
-    >>> from pprint import pprint
-    >>> pprint(res)
-    defaultdict(<class 'list'>, {1: [0.1, 0.13, 0.11], 2: [0.2]})
-
-    >>> x2 = ['a', 'a', 'b', 'a']
-    >>> res2 = grouping(x2, y)
-    >>> res2
-    defaultdict(<class 'list'>, {'a': [0.1, 0.13, 0.11], 'b': [0.2]})
-    '''
-    res = dict_indices(it_x)
-    for k in res:
-        res[k] = [it_y[i] for i in res[k]]
-    return res
+def _download(src, dest, **kwargs):
+    _overwrite(dest, **kwargs)
+    with urlopen(src) as i_f, open(dest, 'wb') as o_f:
+        shutil.copyfileobj(i_f, o_f)
 
 
 def time_func(func):
@@ -202,23 +170,6 @@ def flatten(items, ignore_types=(str, bytes)):
             yield from flatten(x)
         else:
             yield x
-
-
-def yes_or_no(message="Yes or No? "):
-    '''Prompt to answer 'yes' or 'no'.
-    '''
-    while True:
-        try:
-            reply = input(message)
-        except EOFError:
-            continue
-        reply = reply.strip().lower()
-        if reply in ('y', 'yes'):
-            return True
-        elif reply in ('n', 'no'):
-            return False
-        else:
-            continue
 
 
 def parse_function_call(expr):
