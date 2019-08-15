@@ -10,8 +10,8 @@ def filter_matrix(mat, cutoff=0.95, strict=True):
 
     Parameters
     ----------
-    mat : square 2D numpy.array
-        correlation matrix
+    mat : square 2D numeric numpy.array
+    cutoff : float
     strict : bool
         only select the ones that greater than cutoff
 
@@ -20,8 +20,12 @@ def filter_matrix(mat, cutoff=0.95, strict=True):
     set
         the indices that are selected
     '''
-    # only care about upper triangle
-    high = np.triu(mat >= cutoff, 1)
+    if strict:
+        # only care about upper triangle
+        high = np.triu(mat > cutoff, 1)
+    else:
+        high = np.triu(mat >= cutoff, 1)
+
     s = set()
     for i, j in zip(*np.where(high)):
         if i in s or j in s:
@@ -35,16 +39,16 @@ def filter_matrix(mat, cutoff=0.95, strict=True):
     return s
 
 
-def group_dist_agg(distance, group, statistic):
-    '''Compute the `statistic` of the given group of distances.
+def group_dist_agg(distance, pairs, statistic):
+    '''Compute the `statistic` of the given pairs of distances.
 
     Parameters
     ----------
     distance : skbio.DistanceMatrix or square numpy.array
-    group : list of tuples
+    pairs : list of tuples
         For example, [(1, 9), (5, 9), (5, 7)]
     statistic : str or Callable
-        The statistic to compute for the 2-group comparison.'mean', 'median',
+        The statistic to compute for the 2-pairs comparison.'mean', 'median',
         or functions that accept an array of numeric and return a single numeric
 
     Examples
@@ -57,8 +61,8 @@ def group_dist_agg(distance, group, statistic):
     >>> group_dist_agg(distance, [(0, 1), (1, 2), (0, 2)], 'median') == 0.2
     True
     '''
-    grp = np.zeros(len(group))
-    for k, pair in enumerate(group):
+    grp = np.zeros(len(pairs))
+    for k, pair in enumerate(pairs):
         grp[k] = distance[pair[0], pair[1]]
     if statistic == 'mean':
         return np.mean(grp)
@@ -68,7 +72,9 @@ def group_dist_agg(distance, group, statistic):
         return statistic(grp)
 
 
-def distance_permute_test(distance, group_1, group_2, statistic='mean', permutations=999, random_state=None):
+def distance_permute_test(distance, group_1, group_2,
+                          two_sided=False, statistic='mean',
+                          permutations=999, random_state=None):
     '''Statistically compare if there is difference between 2 groups of distances.
 
     Compute the given `statistic` between 2 groups of distances and
@@ -80,6 +86,9 @@ def distance_permute_test(distance, group_1, group_2, statistic='mean', permutat
     group_1 :
     group_2 : list of tuples
         For example, [(1, 9), (5, 9), (5, 7)]
+    two_sided : bool
+        if True, do 2-sided test to see if group_1 != group_2;
+        otherwise, do 1-sided test to see if group_2 > group_1.
     statistic : str or Callable
         The statistic to compute for the 2-group comparison.'mean', 'median',
         or functions that accept an array of numeric and return a single numeric
@@ -100,7 +109,6 @@ def distance_permute_test(distance, group_1, group_2, statistic='mean', permutat
     delta = grp2 - grp1
     rand = np.random.RandomState(random_state)
     delta_rand = np.zeros(permutations)
-    # print(group_1, group_2)
     for k in range(permutations):
         if isinstance(distance, DistanceMatrix):
             ids = distance.ids
@@ -111,8 +119,10 @@ def distance_permute_test(distance, group_1, group_2, statistic='mean', permutat
         group_2_rand = [(idx_map[pair[0]], idx_map[pair[1]]) for pair in group_2]
         # print(idx_map, group_1_rand, group_2_rand)
         delta_rand[k] = group_dist_agg(distance, group_2_rand, statistic) - group_dist_agg(distance, group_1_rand, statistic)
-
-    p = np.sum(delta_rand < delta) / (permutations + 1)
+    if two_sided:
+        p = np.sum(np.abs(delta_rand) > np.abs(delta)) / (permutations + 1)
+    else:
+        p = np.sum(delta_rand > delta) / (permutations + 1)
     return p, delta, delta_rand
 
 
@@ -164,7 +174,7 @@ def distance_uniq_permute_test(distance, group_1, group_2, statistic='mean', per
     grp1 = group_dist_agg(distance, group_1, statistic)
     grp2 = group_dist_agg(distance, group_2, statistic)
     delta = grp2 - grp1
-    p = np.sum(delta_rand < delta) / (permutations + 1)
+    p = np.sum(delta_rand > delta) / (permutations + 1)
     return p, delta, delta_rand
 
 
