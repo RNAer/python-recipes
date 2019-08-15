@@ -2,9 +2,41 @@ import numpy as np
 import math
 import itertools
 
+from skbio import DistanceMatrix
+
+
+def filter_matrix(mat, cutoff=0.95, strict=True):
+    '''filter symmetric correlation or distance matrix.
+
+    Parameters
+    ----------
+    mat : square 2D numpy.array
+        correlation matrix
+    strict : bool
+        only select the ones that greater than cutoff
+
+    Returns
+    -------
+    set
+        the indices that are selected
+    '''
+    # only care about upper triangle
+    high = np.triu(mat >= cutoff, 1)
+    s = set()
+    for i, j in zip(*np.where(high)):
+        if i in s or j in s:
+            continue
+        sumi = np.sum(mat[i, :])
+        sumj = np.sum(mat[:, j])
+        if sumi > sumj:
+            s.add(i)
+        else:
+            s.add(j)
+    return s
+
 
 def group_dist_agg(distance, group, statistic):
-    '''Compute the ``statistic`` of the given group of distances.
+    '''Compute the `statistic` of the given group of distances.
 
     Parameters
     ----------
@@ -15,10 +47,19 @@ def group_dist_agg(distance, group, statistic):
         The statistic to compute for the 2-group comparison.'mean', 'median',
         or functions that accept an array of numeric and return a single numeric
 
+    Examples
+    --------
+    >>> distance = np.array([[0, 0.1, 0.2],
+    ...                      [0.1, 0, 0.5],
+    ...                      [0.2, 0.5, 0]])
+    >>> group_dist_agg(distance, [(0, 1), (1, 2)], 'mean') == 0.3
+    True
+    >>> group_dist_agg(distance, [(0, 1), (1, 2), (0, 2)], 'median') == 0.2
+    True
     '''
     grp = np.zeros(len(group))
-    for k, (i, j) in enumerate(group):
-        grp[k] = distance[i, j]
+    for k, pair in enumerate(group):
+        grp[k] = distance[pair[0], pair[1]]
     if statistic == 'mean':
         return np.mean(grp)
     elif statistic == 'median':
@@ -30,7 +71,7 @@ def group_dist_agg(distance, group, statistic):
 def distance_permute_test(distance, group_1, group_2, statistic='mean', permutations=999, random_state=None):
     '''Statistically compare if there is difference between 2 groups of distances.
 
-    Compute the given ``statistic`` between 2 groups of distances and
+    Compute the given `statistic` between 2 groups of distances and
     statistically test it by permuting the sample labels.
 
     Parameters
@@ -61,9 +102,13 @@ def distance_permute_test(distance, group_1, group_2, statistic='mean', permutat
     delta_rand = np.zeros(permutations)
     # print(group_1, group_2)
     for k in range(permutations):
-        idx_map = dict(zip(range(n), rand.permutation(n)))
-        group_1_rand = [(idx_map[i], idx_map[j]) for i, j in group_1]
-        group_2_rand = [(idx_map[i], idx_map[j]) for i, j in group_2]
+        if isinstance(distance, DistanceMatrix):
+            ids = distance.ids
+        else:
+            ids = np.arange(n)
+        idx_map = dict(zip(ids, rand.permutation(ids)))
+        group_1_rand = [(idx_map[pair[0]], idx_map[pair[1]]) for pair in group_1]
+        group_2_rand = [(idx_map[pair[0]], idx_map[pair[1]]) for pair in group_2]
         # print(idx_map, group_1_rand, group_2_rand)
         delta_rand[k] = group_dist_agg(distance, group_2_rand, statistic) - group_dist_agg(distance, group_1_rand, statistic)
 
@@ -72,8 +117,10 @@ def distance_permute_test(distance, group_1, group_2, statistic='mean', permutat
 
 
 def distance_uniq_permute_test(distance, group_1, group_2, statistic='mean', permutations=999, random_state=None):
-    '''
-    .. note:: it is different from ``distance_permute_test`` in that each random permutation is unique.
+    '''Statistically compare if there is difference between 2 groups of distances.
+
+    .. note:: it is different from `distance_permute_test` in that
+       each random permutation is different from the other permutations.
 
     Parameters
     ----------
@@ -93,6 +140,7 @@ def distance_uniq_permute_test(distance, group_1, group_2, statistic='mean', per
     -------
     tuple
         p-value, the difference between 2 groups, the array of differences after permutations
+
     '''
     n = distance.shape[0]
     counts = math.factorial(n)
@@ -120,13 +168,25 @@ def distance_uniq_permute_test(distance, group_1, group_2, statistic='mean', per
     return p, delta, delta_rand
 
 
-if __name__ == '__main__':
-    distance = np.array([[0, 0.1, 0.2],
-                         [0.1, 0, 0.5],
-                         [0.2, 0.5, 0]])
-    assert group_dist_agg(distance, [(0, 1), (1, 2)], 'mean') == 0.3
+def plot_distribution(distance, groups):
+    '''Plot distance distribution.
 
-    assert group_dist_agg(distance, [(0, 1), (1, 2), (0, 2)], 'median') == 0.2
+    Parameters
+    ----------
+    distance : skbio.DistanceMatrix or square numpy.array
+
+    groups :
+    '''
+    fig, ax = plt.subplots()
+    ax.hist(dsum, bins=10, alpha=0.9)
+    ax.hist(temporal.query('distance!=0')['distance'], bins=10, alpha=0.9)
+    ax.set_xlabel('weighted UniFrac distance')
+    ax.set_ylabel('counts')
+    ax.legend(['within individual', 'across individual'])
+
+
+if __name__ == '__main__':
+    distance = np.array([[0, 0.1, 0.2], [0.1, 0, 0.5], [0.2, 0.5, 0]])
     o = distance_permute_test(distance, [(0, 1), (1, 2)], [(0, 2)], 'mean', 5, random_state=0)
     print(o)
     o = distance_uniq_permute_test(distance, [(0, 1), (1, 2)], [(0, 2)], 'mean', 5, random_state=0)
