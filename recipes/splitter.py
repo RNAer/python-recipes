@@ -84,8 +84,8 @@ class AnotherEntryTail:
 
     And then we can yield each sequence with this code:
 
-    >>> splitter = AnotherEntryTail(lambda x: x == '//\n')
-    >>> gen = split(splitter, construct=lambda x: x.strip())
+    >>> is_another = AnotherEntryTail(lambda x: x == '//\n')
+    >>> gen = split(is_another, construct=lambda x: x.strip())
     >>> list(gen(f))
     [['seq1', 'AT', '//'], ['seq2', 'ATGC', '//']]
 
@@ -133,8 +133,8 @@ class AnotherEntryID:
     ... ctg124\t.\texon\t3000\t3902\t.\t+\t.\tID=exon00003
     ... """
     >>> f = io.StringIO(s)
-    >>> splitter = AnotherEntryID(lambda x: x.split('\t')[0])
-    >>> gen = split(splitter, lambda x: x.strip(), lambda x: x.startswith('#'))
+    >>> is_another = AnotherEntryID(lambda x: x.split('\t')[0])
+    >>> gen = split(is_another, lambda x: x.strip(), lambda x: x.startswith('#'))
     >>> pprint(list(gen(f)))
     [['ctg123\t.\texon\t1300\t1500\t.\t+\t.\tID=exon00001',
       'ctg123\t.\texon\t1050\t1500\t.\t+\t.\tID=exon00002'],
